@@ -1,5 +1,8 @@
 use egui::{scroll_area::ScrollAreaOutput, Color32};
 use egui_extras::{Column, TableBuilder};
+use rusqlite::Connection;
+
+use crate::{insert_new_patient, DB_URL};
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -10,8 +13,9 @@ pub struct Carelog {
     #[serde(skip)]
     state: AppState,
 }
-#[derive(Default)]
+
 pub struct AppState {
+    conn: Connection,
     id: u64,
     first_name: String,
     last_name: String,
@@ -19,7 +23,19 @@ pub struct AppState {
     cb_patient_relation: bool,
     relative_name: String,
 }
-
+impl Default for AppState {
+    fn default() -> Self {
+        Self {
+            conn: Connection::open(DB_URL).expect("issue"),
+            id: Default::default(),
+            first_name: Default::default(),
+            last_name: Default::default(),
+            phone_number: Default::default(),
+            cb_patient_relation: Default::default(),
+            relative_name: Default::default(),
+        }
+    }
+}
 // ! TODO - Make the Screens independent
 // pub enum Screen {
 //     NewPatientCreation,
@@ -30,7 +46,9 @@ impl Default for Carelog {
     fn default() -> Self {
         Self {
             value: 2.7,
-            state: AppState::default(),
+            state: AppState {
+                ..Default::default()
+            },
         }
     }
 }
@@ -107,20 +125,26 @@ impl eframe::App for Carelog {
                             .raised(),
                     );
                     ui.end_row();
-
-                    ui.label(egui::RichText::strong("First Name".into()));
+                    // ------------
+                    ui.horizontal(|ui| {
+                        ui.label(egui::RichText::strong("First Name".into()));
+                        ui.label(egui::RichText::new("*").color(egui::Color32::RED));
+                    });
                     ui.add(
                         egui::TextEdit::singleline(&mut self.state.first_name).hint_text("Suyog"),
                     );
                     ui.end_row();
-
+                    // ------------
                     ui.label(egui::RichText::strong("Last Name".into()));
                     ui.add(
                         egui::TextEdit::singleline(&mut self.state.last_name).hint_text("Diggikar"),
                     );
                     ui.end_row();
-
-                    ui.label(egui::RichText::strong("Mobile Number".into()));
+                    // ------------
+                    ui.horizontal(|ui| {
+                        ui.label(egui::RichText::strong("Mobile Number".into()));
+                        ui.label(egui::RichText::new("*").color(egui::Color32::RED));
+                    });
                     ui.add(
                         egui::TextEdit::singleline(&mut self.state.phone_number).hint_text("100"),
                     );
@@ -128,7 +152,23 @@ impl eframe::App for Carelog {
                 });
 
             ui.add_space(20.0);
-            ui.button("Create patient").highlight();
+
+            if ui.button("Create patient").highlight().clicked()
+                && !self.state.first_name.is_empty()
+                && !self.state.phone_number.is_empty()
+            {
+                insert_new_patient(
+                    &self.state.conn,
+                    &self.state.first_name,
+                    &self.state.last_name,
+                    &self.state.phone_number,
+                )
+                .unwrap_or_else(|_| {
+                    egui::Window::new("Modal Window").show(ctx, |ui| {
+                        ui.label(egui::RichText::strong("Error creating patient".into()));
+                    });
+                });
+            };
         });
     }
 }
