@@ -1,8 +1,10 @@
-use egui::{scroll_area::ScrollAreaOutput, Color32};
+use eframe::egui::scroll_area::ScrollAreaOutput;
 use egui_extras::{Column, TableBuilder};
+use egui_notify::Toasts;
 use rusqlite::Connection;
+use std::time::Duration;
 
-use crate::{insert_new_patient, DB_URL};
+use crate::{create_db, insert_new_patient, DB_URL};
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -16,23 +18,27 @@ pub struct Carelog {
 
 pub struct AppState {
     conn: Connection,
-    id: u64,
     first_name: String,
     last_name: String,
     phone_number: String,
     cb_patient_relation: bool,
     relative_name: String,
+    toasts: Toasts,
 }
+
 impl Default for AppState {
     fn default() -> Self {
+        let conn = Connection::open(DB_URL).expect("Error with the DB");
+        let _ = create_db(&conn).expect("Error with the DB");
+
         Self {
-            conn: Connection::open(DB_URL).expect("issue"),
-            id: Default::default(),
+            conn: conn,
             first_name: Default::default(),
             last_name: Default::default(),
             phone_number: Default::default(),
             cb_patient_relation: Default::default(),
             relative_name: Default::default(),
+            toasts: Toasts::default(),
         }
     }
 }
@@ -58,6 +64,7 @@ impl Carelog {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         // This is also where you can customize the look and feel of egui using
         // `cc.egui_ctx.set_visuals` and `cc.egui_ctx.set_fonts`.
+        cc.egui_ctx.set_zoom_factor(1.2);
 
         // Load previous app state (if any).
         // Note that you must enable the `persistence` feature for this to work.
@@ -75,10 +82,9 @@ impl eframe::App for Carelog {
         eframe::set_value(storage, eframe::APP_KEY, self);
     }
 
-    /// Called each time the UI needs repainting, which may be many times per second.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // Put your widgets into a `SidePanel`, `TopBottomPanel`, `CentralPanel`, `Window` or `Area`.
-        // For inspiration and more examples, go to https://emilk.github.io/egui
+        // Toast Init
+        self.state.toasts.show(ctx);
 
         egui::TopBottomPanel::bottom("bottom_panel").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
@@ -95,35 +101,15 @@ impl eframe::App for Carelog {
             ui.heading("New Patient Information");
             ui.add_space(20.0);
 
-            ui.checkbox(
-                &mut self.state.cb_patient_relation,
-                "Relative of an existing patient",
-            );
-
-            if self.state.cb_patient_relation {
-                egui::Grid::new("cb_patient_relation_grid")
-                    .num_columns(2)
-                    .show(ui, |ui| {
-                        ui.label(egui::RichText::strong("Relative's Name".into()));
-                        ui.add(
-                            egui::TextEdit::singleline(&mut self.state.relative_name)
-                                .hint_text("Sujit Bhor"),
-                        );
-                        ui.end_row();
-                    });
-            }
-            ui.add_space(10.0);
-
             egui::Grid::new("patient_form_grid")
                 .num_columns(2)
                 .show(ui, |ui| {
                     ui.label(egui::RichText::strong("Patient ID".into()));
-                    ui.label(
-                        egui::RichText::strong("1".into())
-                            .color(Color32::YELLOW)
-                            .background_color(Color32::BLACK)
-                            .raised(),
-                    );
+
+                    // Retrieve the ID from DB to be used
+                    let id = &mut self.state.conn.last_insert_rowid().clone().to_string();
+
+                    ui.label(egui::RichText::strong(id.into()).raised());
                     ui.end_row();
                     // ------------
                     ui.horizontal(|ui| {
@@ -151,6 +137,25 @@ impl eframe::App for Carelog {
                     ui.end_row();
                 });
 
+            ui.checkbox(
+                &mut self.state.cb_patient_relation,
+                "Relative of an existing patient",
+            );
+
+            if self.state.cb_patient_relation {
+                ui.add_space(10.0);
+                egui::Grid::new("cb_patient_relation_grid")
+                    .num_columns(2)
+                    .show(ui, |ui| {
+                        ui.label(egui::RichText::strong("Relative's Name".into()));
+                        ui.add(
+                            egui::TextEdit::singleline(&mut self.state.relative_name)
+                                .hint_text("Sujit Bhor"),
+                        );
+                        ui.end_row();
+                    });
+            }
+
             ui.add_space(20.0);
 
             if ui.button("Create patient").highlight().clicked()
@@ -164,10 +169,16 @@ impl eframe::App for Carelog {
                     &self.state.phone_number,
                 )
                 .unwrap_or_else(|_| {
-                    egui::Window::new("Modal Window").show(ctx, |ui| {
-                        ui.label(egui::RichText::strong("Error creating patient".into()));
-                    });
+                    self.state
+                        .toasts
+                        .error("Failed to create a new patient")
+                        .duration(Some(Duration::from_secs(7)));
                 });
+
+                self.state
+                    .toasts
+                    .success("Created a new patient")
+                    .duration(Some(Duration::from_secs(7)));
             };
         });
     }

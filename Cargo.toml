@@ -24,6 +24,7 @@ log = "0.4"
 # You only need serde if you want app persistence:
 serde = { version = "1.0.210", features = ["derive"] }
 rusqlite = { version = "0.31.0", features = ["bundled"] }
+egui-notify = "0.16.0"
 
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

@@ -608,6 +608,7 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui",
+ "egui-notify",
  "egui_extras",
  "env_logger",
  "log",
@@ -893,6 +894,15 @@ dependencies = [
  "nohash-hasher",
  "ron",
  "serde",
+]
+
+[[package]]
+name = "egui-notify"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8de720b5dcc65e494a31c89396d3191c1ec5869ae949227d59b72300ea0e1bd8"
+dependencies = [
+ "egui",
 ]
 
 [[package]]
