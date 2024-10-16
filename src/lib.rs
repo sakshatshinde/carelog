@@ -27,6 +27,17 @@ pub fn create_db(conn: &Connection) -> Result<()> {
         params![],
     )?;
 
+    conn.execute(
+        "create table if not exists patient_data (
+            patient_id integer primary key references patient_info(id),
+            visit_date text,
+            diagnosis_overview text,
+            detailed_notes text,
+            medical_test_info text
+        )",
+        params![],
+    )?;
+
     Ok(())
 }
 
