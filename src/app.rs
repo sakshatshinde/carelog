@@ -14,6 +14,8 @@ pub struct Carelog {
     value: f32,
     #[serde(skip)]
     state: AppState,
+    #[serde(skip)]
+    current_screen: Screen,
 }
 
 pub struct AppState {
@@ -47,10 +49,20 @@ impl Default for AppState {
     }
 }
 // ! TODO - Make the Screens independent
-// pub enum Screen {
-//     NewPatientCreation,
-//     FindPatientHistory,
-// }
+#[derive(PartialEq)]
+pub enum Screen {
+    NewPatientCreation,
+    FindPatientHistory,
+}
+
+impl Screen {
+    fn title(&self) -> &'static str {
+        match self {
+            Screen::NewPatientCreation => "➕ New Patient",
+            Screen::FindPatientHistory => "🔍 Find Patient",
+        }
+    }
+}
 
 impl Default for Carelog {
     fn default() -> Self {
@@ -59,6 +71,7 @@ impl Default for Carelog {
             state: AppState {
                 ..Default::default()
             },
+            current_screen: Screen::NewPatientCreation,
         }
     }
 }
@@ -78,6 +91,173 @@ impl Carelog {
 
         Default::default()
     }
+    fn render_sidebar(&mut self, ctx: &egui::Context) {
+        egui::SidePanel::left("sidebar")
+            .resizable(false)
+            .show(ctx, |ui| {
+                ui.add_space(10.0);
+                // Navigation buttons
+                let mut nav_button = |ui: &mut egui::Ui, screen: Screen| {
+                    let selected = self.current_screen == screen;
+                    let response =
+                        ui.selectable_label(selected, screen.title())
+                            .on_hover_text(match screen {
+                                Screen::NewPatientCreation => "Create a new patient record",
+                                Screen::FindPatientHistory => "Search and view patient records",
+                            });
+
+                    if response.clicked() {
+                        self.current_screen = screen;
+                    }
+                };
+
+                // Scroll area for navigation items
+                egui::ScrollArea::vertical().show(ui, |ui| {
+                    nav_button(ui, Screen::NewPatientCreation);
+                    nav_button(ui, Screen::FindPatientHistory);
+                });
+
+                // Version information at the bottom
+                ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
+                    ui.horizontal(|ui| {
+                        ui.spacing_mut().item_spacing.x = 0.0;
+                        ui.colored_label(ui.visuals().weak_text_color(), "Carelog ");
+                        ui.colored_label(ui.visuals().weak_text_color(), "v 0.0.1 (Alpha)");
+                    });
+                });
+            });
+    }
+
+    fn render_new_patient(&mut self, ui: &mut egui::Ui) {
+        ui.heading("New Patient Information");
+        ui.add_space(20.0);
+        eframe::egui::Grid::new("patient_form_grid")
+            .num_columns(2)
+            .show(ui, |ui| {
+                egui::Grid::new("patient_form_grid")
+                    .num_columns(2)
+                    .show(ui, |ui| {
+                        ui.label(egui::RichText::strong("Patient ID".into()));
+
+                        // Retrieve the ID from DB to be used
+                        let id = &mut self.state.conn.last_insert_rowid().clone().to_string();
+
+                        ui.label(egui::RichText::strong(id.into()).raised());
+                        ui.end_row();
+                        // ------------
+                        ui.horizontal(|ui| {
+                            ui.label(egui::RichText::strong("First Name".into()));
+                            ui.label(egui::RichText::new("*").color(egui::Color32::RED));
+                        });
+                        ui.add(
+                            egui::TextEdit::singleline(&mut self.state.first_name)
+                                .hint_text("Suyog"),
+                        );
+                        ui.end_row();
+                        // ------------
+                        ui.label(egui::RichText::strong("Last Name".into()));
+                        ui.add(
+                            egui::TextEdit::singleline(&mut self.state.last_name)
+                                .hint_text("Diggikar"),
+                        );
+                        ui.end_row();
+                        // ------------
+                        ui.horizontal(|ui| {
+                            ui.label(egui::RichText::strong("Mobile Number".into()));
+                            ui.label(egui::RichText::new("*").color(egui::Color32::RED));
+                        });
+                        ui.add(
+                            egui::TextEdit::singleline(&mut self.state.phone_number)
+                                .hint_text("100"),
+                        );
+                        ui.end_row();
+                        // -----------
+                        ui.horizontal(|ui| {
+                            ui.label(egui::RichText::strong("Date of birth".into()));
+                        });
+                        ui.add(egui_extras::DatePickerButton::new(
+                            &mut self.state.date_of_birth,
+                        ));
+                        ui.end_row();
+                        // -----------
+                        ui.horizontal(|ui| {
+                            ui.label(egui::RichText::strong("Address".into()));
+                        });
+                        ui.add(
+                            egui::TextEdit::multiline(&mut self.state.address).hint_text(
+                                "Harshal Residency, Near Gawade Petrol Pump, Chinchwad - 411019",
+                            ),
+                        );
+                        ui.end_row();
+                    });
+            });
+
+        ui.checkbox(
+            &mut self.state.cb_patient_relation,
+            "Relative of an existing patient",
+        );
+
+        if self.state.cb_patient_relation {
+            ui.add_space(10.0);
+            egui::Grid::new("cb_patient_relation_grid")
+                .num_columns(2)
+                .show(ui, |ui| {
+                    ui.label(egui::RichText::strong("Relative's Name".into()));
+                    ui.add(
+                        egui::TextEdit::singleline(&mut self.state.relative_name)
+                            .hint_text("Sujit Bhor"),
+                    );
+                    ui.end_row();
+                });
+        }
+
+        ui.add_space(20.0);
+
+        if ui.button("Create patient").highlight().clicked()
+            && !self.state.first_name.is_empty()
+            && !self.state.phone_number.is_empty()
+        {
+            insert_new_patient(
+                &self.state.conn,
+                &self.state.first_name,
+                &self.state.last_name,
+                &self.state.phone_number,
+                &self.state.date_of_birth,
+                &self.state.address,
+            )
+            .unwrap_or_else(|_| {
+                self.state
+                    .toasts
+                    .error("Failed to create a new patient")
+                    .duration(Some(Duration::from_secs(7)));
+            });
+
+            self.state
+                .toasts
+                .success("Created a new patient")
+                .duration(Some(Duration::from_secs(7)));
+        };
+    }
+
+    // todo render patient search
+    fn render_find_patient(&mut self, ui: &mut egui::Ui) {
+        ui.heading("Find Patient History");
+        ui.add_space(20.0);
+
+        // Add your patient search functionality here
+        ui.horizontal(|ui| {
+            ui.label("Search: ");
+            let mut search_text = String::new();
+            ui.text_edit_singleline(&mut search_text);
+            if ui.button("Search").clicked() {
+                // Implement search functionality
+                todo!()
+            }
+        });
+
+        // Display search results
+        display_related_patients(ui);
+    }
 }
 
 impl eframe::App for Carelog {
@@ -89,6 +269,7 @@ impl eframe::App for Carelog {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         // Toast Init
         self.state.toasts.show(ctx);
+        self.render_sidebar(ctx);
 
         egui::TopBottomPanel::bottom("bottom_panel").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
@@ -101,109 +282,10 @@ impl eframe::App for Carelog {
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            // The central panel the region left after adding TopPanel's and SidePanel's
-            ui.heading("New Patient Information");
-            ui.add_space(20.0);
-
-            egui::Grid::new("patient_form_grid")
-                .num_columns(2)
-                .show(ui, |ui| {
-                    ui.label(egui::RichText::strong("Patient ID".into()));
-
-                    // Retrieve the ID from DB to be used
-                    let id = &mut self.state.conn.last_insert_rowid().clone().to_string();
-
-                    ui.label(egui::RichText::strong(id.into()).raised());
-                    ui.end_row();
-                    // ------------
-                    ui.horizontal(|ui| {
-                        ui.label(egui::RichText::strong("First Name".into()));
-                        ui.label(egui::RichText::new("*").color(egui::Color32::RED));
-                    });
-                    ui.add(
-                        egui::TextEdit::singleline(&mut self.state.first_name).hint_text("Suyog"),
-                    );
-                    ui.end_row();
-                    // ------------
-                    ui.label(egui::RichText::strong("Last Name".into()));
-                    ui.add(
-                        egui::TextEdit::singleline(&mut self.state.last_name).hint_text("Diggikar"),
-                    );
-                    ui.end_row();
-                    // ------------
-                    ui.horizontal(|ui| {
-                        ui.label(egui::RichText::strong("Mobile Number".into()));
-                        ui.label(egui::RichText::new("*").color(egui::Color32::RED));
-                    });
-                    ui.add(
-                        egui::TextEdit::singleline(&mut self.state.phone_number).hint_text("100"),
-                    );
-                    ui.end_row();
-                    // -----------
-                    ui.horizontal(|ui| {
-                        ui.label(egui::RichText::strong("Date of birth".into()));
-                    });
-                    ui.add(egui_extras::DatePickerButton::new(
-                        &mut self.state.date_of_birth,
-                    ));
-                    ui.end_row();
-                    // -----------
-                    ui.horizontal(|ui| {
-                        ui.label(egui::RichText::strong("Address".into()));
-                    });
-                    ui.add(
-                        egui::TextEdit::multiline(&mut self.state.address).hint_text(
-                            "Harshal Residency, Near Gawade Petrol Pump, Chinchwad - 411019",
-                        ),
-                    );
-                    ui.end_row();
-                });
-
-            ui.checkbox(
-                &mut self.state.cb_patient_relation,
-                "Relative of an existing patient",
-            );
-
-            if self.state.cb_patient_relation {
-                ui.add_space(10.0);
-                egui::Grid::new("cb_patient_relation_grid")
-                    .num_columns(2)
-                    .show(ui, |ui| {
-                        ui.label(egui::RichText::strong("Relative's Name".into()));
-                        ui.add(
-                            egui::TextEdit::singleline(&mut self.state.relative_name)
-                                .hint_text("Sujit Bhor"),
-                        );
-                        ui.end_row();
-                    });
-            }
-
-            ui.add_space(20.0);
-
-            if ui.button("Create patient").highlight().clicked()
-                && !self.state.first_name.is_empty()
-                && !self.state.phone_number.is_empty()
-            {
-                insert_new_patient(
-                    &self.state.conn,
-                    &self.state.first_name,
-                    &self.state.last_name,
-                    &self.state.phone_number,
-                    &self.state.date_of_birth,
-                    &self.state.address,
-                )
-                .unwrap_or_else(|_| {
-                    self.state
-                        .toasts
-                        .error("Failed to create a new patient")
-                        .duration(Some(Duration::from_secs(7)));
-                });
-
-                self.state
-                    .toasts
-                    .success("Created a new patient")
-                    .duration(Some(Duration::from_secs(7)));
-            };
+            egui::Frame::none().show(ui, |ui| match self.current_screen {
+                Screen::NewPatientCreation => self.render_new_patient(ui),
+                Screen::FindPatientHistory => self.render_find_patient(ui),
+            });
         });
     }
 }
