@@ -21,6 +21,8 @@ pub struct AppState {
     first_name: String,
     last_name: String,
     phone_number: String,
+    date_of_birth: chrono::NaiveDate,
+    address: String,
     cb_patient_relation: bool,
     relative_name: String,
     toasts: Toasts,
@@ -36,9 +38,11 @@ impl Default for AppState {
             first_name: Default::default(),
             last_name: Default::default(),
             phone_number: Default::default(),
+            date_of_birth: chrono::Local::now().date_naive(),
+            address: Default::default(),
             cb_patient_relation: Default::default(),
             relative_name: Default::default(),
-            toasts: Toasts::default(),
+            toasts: Default::default(),
         }
     }
 }
@@ -135,6 +139,24 @@ impl eframe::App for Carelog {
                         egui::TextEdit::singleline(&mut self.state.phone_number).hint_text("100"),
                     );
                     ui.end_row();
+                    // -----------
+                    ui.horizontal(|ui| {
+                        ui.label(egui::RichText::strong("Date of birth".into()));
+                    });
+                    ui.add(egui_extras::DatePickerButton::new(
+                        &mut self.state.date_of_birth,
+                    ));
+                    ui.end_row();
+                    // -----------
+                    ui.horizontal(|ui| {
+                        ui.label(egui::RichText::strong("Address".into()));
+                    });
+                    ui.add(
+                        egui::TextEdit::multiline(&mut self.state.address).hint_text(
+                            "Harshal Residency, Near Gawade Petrol Pump, Chinchwad - 411019",
+                        ),
+                    );
+                    ui.end_row();
                 });
 
             ui.checkbox(
@@ -167,6 +189,8 @@ impl eframe::App for Carelog {
                     &self.state.first_name,
                     &self.state.last_name,
                     &self.state.phone_number,
+                    &self.state.date_of_birth,
+                    &self.state.address,
                 )
                 .unwrap_or_else(|_| {
                     self.state

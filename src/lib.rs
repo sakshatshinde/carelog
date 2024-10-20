@@ -13,7 +13,9 @@ pub fn create_db(conn: &Connection) -> Result<()> {
             id integer primary key,
             first_name text not null,
             last_name text,
-            mobile_number text
+            mobile_number text,
+            date_of_birth text,
+            address text
         )",
         params![],
     )?;
@@ -46,10 +48,18 @@ pub fn insert_new_patient(
     first_name: &str,
     last_name: &str,
     mobile_number: &str,
+    date_of_birth: &chrono::NaiveDate,
+    address: &str,
 ) -> Result<()> {
     let mut stmt = conn.prepare_cached(
-        "INSERT INTO patient_info (first_name,last_name,mobile_number) VALUES (?1, ?2, ?3)",
+        "INSERT INTO patient_info (first_name,last_name,mobile_number,date_of_birth,address) VALUES (?1, ?2, ?3, ?4, ?5)",
     )?;
-    stmt.execute([first_name, last_name, mobile_number])?;
+    stmt.execute([
+        first_name,
+        last_name,
+        mobile_number,
+        &date_of_birth.to_string(),
+        address,
+    ])?;
     Ok(())
 }
