@@ -63,3 +63,21 @@ pub fn insert_new_patient(
     ])?;
     Ok(())
 }
+
+pub fn helper_avaliable_patients_in_db(conn: &Connection) -> Result<Vec<String>, rusqlite::Error> {
+    let mut stmt = conn.prepare_cached("SELECT first_name, last_name, id FROM patient_info")?;
+
+    // Execute the query and map each row to a formatted String, collecting them into a Vec.
+    let result = stmt
+        .query_map([], |row| {
+            let first_name: String = row.get(0)?;
+            let last_name: String = row.get(1)?;
+            let id: i32 = row.get(2)?;
+
+            // Format as "FirstName LastName (ID)"
+            Ok(format!("{} {} ({})", first_name, last_name, id))
+        })?
+        .collect::<Result<Vec<String>, _>>()?;
+
+    Ok(result)
+}
