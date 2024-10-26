@@ -275,7 +275,7 @@ impl Carelog {
                 ui.end_row();
             });
 
-        ui.add_space(20.0);
+        ui.add_space(10.0);
 
         // Filter suggestions based on search text
         let suggestions: Vec<String> = list_of_patients
@@ -362,10 +362,18 @@ impl Carelog {
                             });
                     });
             } else {
-                ui.colored_label(ui.visuals().warn_fg_color, "Please enter a search term");
+                ui.label(
+                    egui::RichText::new("ℹ Patient not found")
+                        .color(ui.visuals().error_fg_color)
+                        .strong(),
+                );
             }
         } else {
-            ui.colored_label(ui.visuals().warn_fg_color, "Please enter a search term");
+            ui.label(
+                egui::RichText::new("ℹ Please enter a name")
+                    .color(ui.visuals().warn_fg_color)
+                    .strong(),
+            );
         }
     }
 }
