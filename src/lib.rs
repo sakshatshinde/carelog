@@ -81,3 +81,11 @@ pub fn helper_avaliable_patients_in_db(conn: &Connection) -> Result<Vec<String>,
 
     Ok(result)
 }
+
+pub fn extract_number_from_brackets(input: &str) -> Option<u32> {
+    input
+        .split('(')
+        .nth(1)
+        .and_then(|s| s.split(')').next())
+        .and_then(|s| s.parse().ok())
+}

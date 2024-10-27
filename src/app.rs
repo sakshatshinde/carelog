@@ -2,9 +2,12 @@ use eframe::egui::scroll_area::ScrollAreaOutput;
 use egui_extras::{Column, TableBuilder};
 use egui_notify::Toasts;
 use rusqlite::Connection;
-use std::time::Duration;
+use std::{clone, time::Duration};
 
-use crate::{create_db, helper_avaliable_patients_in_db, insert_new_patient, DB_URL};
+use crate::{
+    create_db, extract_number_from_brackets, helper_avaliable_patients_in_db, insert_new_patient,
+    DB_URL,
+};
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -19,6 +22,7 @@ pub struct Carelog {
 }
 
 pub struct AppState {
+    id: u32,
     conn: Connection,
     search_text: String,
     first_name: String,
@@ -37,6 +41,7 @@ impl Default for AppState {
         let _ = create_db(&conn).expect("Error with the DB");
 
         Self {
+            id: Default::default(),
             conn: conn,
             first_name: Default::default(),
             last_name: Default::default(),
@@ -55,6 +60,7 @@ impl Default for AppState {
 pub enum Screen {
     NewPatientCreation,
     FindPatientHistory,
+    NewCase,
 }
 
 impl Screen {
@@ -62,6 +68,7 @@ impl Screen {
         match self {
             Screen::NewPatientCreation => "➕ New Patient",
             Screen::FindPatientHistory => "🔍 New Case",
+            Screen::NewCase => "",
         }
     }
 }
@@ -106,7 +113,8 @@ impl Carelog {
                         ui.selectable_label(selected, screen.title())
                             .on_hover_text(match screen {
                                 Screen::NewPatientCreation => "Create a new patient record",
-                                Screen::FindPatientHistory => "Search and view patient records",
+                                Screen::FindPatientHistory => "Search patient",
+                                Screen::NewCase => "Case Details",
                             });
 
                     if response.clicked() {
@@ -350,6 +358,16 @@ impl Carelog {
                                                                     .duration(Some(
                                                                         Duration::from_secs(3),
                                                                     ));
+
+                                                                self.state.id = match  extract_number_from_brackets(
+                                                                        &suggestion,
+                                                                    ){
+                                                                        Some(n) => n,
+                                                                        None => 0,
+                                                                    };
+
+                                                                self.current_screen =
+                                                                    Screen::NewCase;
                                                             }
                                                         },
                                                     );
@@ -375,6 +393,33 @@ impl Carelog {
                     .strong(),
             );
         }
+    }
+
+    fn render_new_case(&mut self, ui: &mut egui::Ui) {
+        // Header section
+        ui.vertical(|ui| {
+            ui.heading("New Case");
+        });
+
+        eframe::egui::Grid::new("patient_info_grid")
+            .num_columns(2)
+            .show(ui, |ui| {
+                egui::Grid::new("patient_info_grid")
+                    .num_columns(2)
+                    .show(ui, |ui| {
+                        // ------------
+                        ui.horizontal(|ui| {
+                            ui.label(egui::RichText::strong("Patient".into()));
+                        });
+
+                        ui.label(
+                            egui::RichText::strong(self.state.first_name.clone().into())
+                                .color(ui.visuals().hyperlink_color),
+                        );
+
+                        ui.end_row();
+                    });
+            });
     }
 }
 
@@ -403,6 +448,7 @@ impl eframe::App for Carelog {
             egui::Frame::none().show(ui, |ui| match self.current_screen {
                 Screen::NewPatientCreation => self.render_new_patient(ui),
                 Screen::FindPatientHistory => self.render_find_patient(ui),
+                Screen::NewCase => self.render_new_case(ui),
             });
         });
     }
