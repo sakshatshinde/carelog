@@ -407,11 +407,13 @@ impl Carelog {
         // Header section
         ui.vertical(|ui| {
             ui.heading("New Case");
+            ui.set_width(ui.available_width());
 
             eframe::egui::Grid::new("patient_info_grid")
                 .num_columns(2)
-                .spacing([10.0, 10.0])
+                // .spacing([10.0, 10.0])
                 .show(ui, |ui| {
+                    ui.set_width(ui.available_width());
                     ui.horizontal(|ui| {
                         ui.label(egui::RichText::strong("Patient".into()));
                     });
@@ -443,7 +445,8 @@ impl Carelog {
                     ui.add_space(10.0);
                     ui.add(
                         eframe::egui::TextEdit::multiline(&mut self.state.diagnosis_overview)
-                            .desired_rows(4),
+                            .desired_rows(4)
+                            .desired_width(ui.available_width() - 20.0),
                     );
 
                     ui.add_space(20.0);
@@ -452,7 +455,8 @@ impl Carelog {
                     ui.add_space(10.0);
                     ui.add(
                         eframe::egui::TextEdit::multiline(&mut self.state.detailed_notes)
-                            .desired_rows(10),
+                            .desired_rows(10)
+                            .desired_width(ui.available_width() - 20.0),
                     );
 
                     ui.add_space(20.0);
@@ -462,7 +466,7 @@ impl Carelog {
                     ui.add(
                         eframe::egui::TextEdit::multiline(&mut self.state.medical_tests)
                             .desired_rows(4)
-                            .lock_focus(true),
+                            .desired_width(ui.available_width() - 20.0),
                     );
                 });
         });
