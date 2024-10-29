@@ -29,9 +29,13 @@ pub struct AppState {
     last_name: String,
     phone_number: String,
     date_of_birth: chrono::NaiveDate,
+    visit_date: chrono::NaiveDate,
     address: String,
     cb_patient_relation: bool,
     relative_name: String,
+    diagnosis_overview: String,
+    detailed_notes: String,
+    medical_tests: String,
     toasts: Toasts,
 }
 
@@ -47,11 +51,15 @@ impl Default for AppState {
             last_name: Default::default(),
             phone_number: Default::default(),
             date_of_birth: chrono::Local::now().date_naive(),
+            visit_date: chrono::Local::now().date_naive(),
             address: Default::default(),
             cb_patient_relation: Default::default(),
             relative_name: Default::default(),
             toasts: Default::default(),
             search_text: Default::default(),
+            diagnosis_overview: Default::default(),
+            detailed_notes: Default::default(),
+            medical_tests: Default::default(),
         }
     }
 }
@@ -399,27 +407,65 @@ impl Carelog {
         // Header section
         ui.vertical(|ui| {
             ui.heading("New Case");
-        });
 
-        eframe::egui::Grid::new("patient_info_grid")
-            .num_columns(2)
-            .show(ui, |ui| {
-                egui::Grid::new("patient_info_grid")
-                    .num_columns(2)
-                    .show(ui, |ui| {
-                        // ------------
-                        ui.horizontal(|ui| {
-                            ui.label(egui::RichText::strong("Patient".into()));
-                        });
-
-                        ui.label(
-                            egui::RichText::strong(self.state.first_name.clone().into())
-                                .color(ui.visuals().hyperlink_color),
-                        );
-
-                        ui.end_row();
+            eframe::egui::Grid::new("patient_info_grid")
+                .num_columns(2)
+                .spacing([10.0, 10.0])
+                .show(ui, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.label(egui::RichText::strong("Patient".into()));
                     });
-            });
+
+                    ui.label(
+                        egui::RichText::strong(self.state.first_name.clone().into())
+                            .color(ui.visuals().hyperlink_color),
+                    );
+
+                    ui.end_row();
+                    ui.horizontal(|ui| {
+                        ui.label(egui::RichText::strong("Vist Date".into()));
+                    });
+
+                    ui.add(egui_extras::DatePickerButton::new(
+                        &mut self.state.visit_date,
+                    ));
+
+                    ui.end_row();
+                });
+
+            ui.add_space(20.0);
+
+            eframe::egui::ScrollArea::vertical()
+                .id_salt("case_scroll_area")
+                .auto_shrink([true, true])
+                .show(ui, |ui| {
+                    ui.label(egui::RichText::strong("Diagnosis Overview".into()));
+                    ui.add_space(10.0);
+                    ui.add(
+                        eframe::egui::TextEdit::multiline(&mut self.state.diagnosis_overview)
+                            .desired_rows(4),
+                    );
+
+                    ui.add_space(20.0);
+
+                    ui.label(egui::RichText::strong("Detailed Notes".into()));
+                    ui.add_space(10.0);
+                    ui.add(
+                        eframe::egui::TextEdit::multiline(&mut self.state.detailed_notes)
+                            .desired_rows(10),
+                    );
+
+                    ui.add_space(20.0);
+
+                    ui.label(egui::RichText::strong("Medical Tests".into()));
+                    ui.add_space(10.0);
+                    ui.add(
+                        eframe::egui::TextEdit::multiline(&mut self.state.medical_tests)
+                            .desired_rows(4)
+                            .lock_focus(true),
+                    );
+                });
+        });
     }
 }
 
