@@ -144,7 +144,6 @@ impl Carelog {
                 // Version information at the bottom
                 ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
                     ui.horizontal(|ui| {
-                        ui.spacing_mut().item_spacing.x = 0.0;
                         ui.label("Carelog ");
                         ui.colored_label(ui.visuals().weak_text_color(), "Alpha");
                     });
@@ -528,6 +527,7 @@ impl Carelog {
                 // Title Section
                 ui.add_space(20.0);
                 ui.heading("Carelog");
+                ui.colored_label(ui.visuals().warn_fg_color, "Alpha");
                 ui.add_space(8.0);
 
                 // Version Info
