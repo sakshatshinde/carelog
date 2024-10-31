@@ -54,7 +54,7 @@ pub fn create_db(conn: &Connection) -> Result<()> {
 
     conn.execute(
         "create table if not exists patient_data (
-            patient_id integer primary key references patient_info(id),
+            patient_id integer references patient_info(id),
             visit_date text,
             diagnosis_overview text,
             detailed_notes text,
