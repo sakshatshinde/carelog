@@ -1,9 +1,32 @@
 #![warn(clippy::all, rust_2018_idioms)]
 
 mod app;
+
 pub use app::Carelog;
 
+use log::LevelFilter;
+use log4rs::{
+    append::file::FileAppender,
+    config::{Appender, Config, Root},
+    encode::pattern::PatternEncoder,
+};
+
 use rusqlite::{params, Connection, Result};
+
+pub fn setup_file_logging() -> Result<(), Box<dyn std::error::Error>> {
+    let logfile = FileAppender::builder()
+        .encoder(Box::new(PatternEncoder::new("{d} - {l} - {m}\n")))
+        .build("carelog.log")?;
+
+    let config = Config::builder()
+        .appender(Appender::builder().build("logfile", Box::new(logfile)))
+        .build(Root::builder().appender("logfile").build(LevelFilter::Info))?;
+
+    log4rs::init_config(config)?;
+
+    log::info!("Logging initialized to file");
+    Ok(())
+}
 
 pub const DB_URL: &str = "./carelog.db";
 
@@ -88,4 +111,30 @@ pub fn extract_number_from_brackets(input: &str) -> Option<u32> {
         .nth(1)
         .and_then(|s| s.split(')').next())
         .and_then(|s| s.parse().ok())
+}
+
+pub fn insert_patient_data(
+    conn: &Connection,
+    id: &u32,
+    diagnosis_overview: &str,
+    detailed_notes: &str,
+    medical_tests: &str,
+) -> Result<(), rusqlite::Error> {
+    let visit_date = chrono::Local::now().date_naive().to_string();
+
+    let mut stmt = conn.prepare_cached(
+        "INSERT OR REPLACE INTO patient_data 
+        (diagnosis_overview,detailed_note,medical_test_info,patient_id,visit_date) 
+        VALUES (?1, ?2, ?3,?4,?5)",
+    )?;
+
+    stmt.execute(params![
+        diagnosis_overview,
+        detailed_notes,
+        medical_tests,
+        id,
+        visit_date
+    ])?;
+
+    Ok(())
 }

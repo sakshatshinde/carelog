@@ -2,11 +2,11 @@ use eframe::egui::scroll_area::ScrollAreaOutput;
 use egui_extras::{Column, TableBuilder};
 use egui_notify::Toasts;
 use rusqlite::Connection;
-use std::{clone, time::Duration};
+use std::time::Duration;
 
 use crate::{
     create_db, extract_number_from_brackets, helper_avaliable_patients_in_db, insert_new_patient,
-    DB_URL,
+    insert_patient_data, DB_URL,
 };
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
@@ -35,7 +35,7 @@ pub struct AppState {
     relative_name: String,
     diagnosis_overview: String,
     detailed_notes: String,
-    medical_tests: String,
+    medical_test_info: String,
     toasts: Toasts,
 }
 
@@ -59,11 +59,11 @@ impl Default for AppState {
             search_text: Default::default(),
             diagnosis_overview: Default::default(),
             detailed_notes: Default::default(),
-            medical_tests: Default::default(),
+            medical_test_info: Default::default(),
         }
     }
 }
-// ! TODO - Make the Screens independent
+
 #[derive(PartialEq)]
 pub enum Screen {
     NewPatientCreation,
@@ -232,29 +232,39 @@ impl Carelog {
 
         ui.add_space(20.0);
 
-        if ui.button("Create patient").highlight().clicked()
+        if ui
+            .add_sized(
+                [100.0, 24.0],
+                eframe::egui::Button::new("Save").fill(ui.visuals().selection.bg_fill),
+            )
+            .clicked()
             && !self.state.first_name.is_empty()
             && !self.state.phone_number.is_empty()
         {
-            insert_new_patient(
+            match insert_new_patient(
                 &self.state.conn,
                 &self.state.first_name,
                 &self.state.last_name,
                 &self.state.phone_number,
                 &self.state.date_of_birth,
                 &self.state.address,
-            )
-            .unwrap_or_else(|_| {
-                self.state
-                    .toasts
-                    .error("Failed to create a new patient")
-                    .duration(Some(Duration::from_secs(7)));
-            });
+            ) {
+                Ok(_) => {
+                    self.state
+                        .toasts
+                        .success("Created a new patient")
+                        .duration(Some(Duration::from_secs(7)));
+                }
 
-            self.state
-                .toasts
-                .success("Created a new patient")
-                .duration(Some(Duration::from_secs(7)));
+                Err(e) => {
+                    self.state
+                        .toasts
+                        .error("Failed to create a new patient")
+                        .duration(Some(Duration::from_secs(7)));
+
+                    log::error!("{}", e);
+                }
+            }
         };
     }
 
@@ -262,11 +272,13 @@ impl Carelog {
         // Fetch the list of all patients from the database
         let list_of_patients = match helper_avaliable_patients_in_db(&self.state.conn) {
             Ok(patients) => patients,
-            Err(_) => {
+            Err(e) => {
                 ui.add_space(10.0);
                 ui.label(
                     egui::RichText::new("❌ Failed to load patients").color(egui::Color32::RED),
                 );
+
+                log::error!("{}", e);
                 return;
             }
         };
@@ -343,7 +355,7 @@ impl Carelog {
                                                         |ui| {
                                                             if ui
                                                                 .add_sized(
-                                                                    [120.0, 24.0],
+                                                                    [100.0, 24.0],
                                                                     eframe::egui::Button::new(
                                                                         "Create Case 📋",
                                                                     )
@@ -408,7 +420,7 @@ impl Carelog {
         ui.vertical(|ui| {
             ui.heading("New Case");
             ui.set_width(ui.available_width());
-
+            ui.add_space(20.0);
             eframe::egui::Grid::new("patient_info_grid")
                 .num_columns(2)
                 // .spacing([10.0, 10.0])
@@ -464,10 +476,43 @@ impl Carelog {
                     ui.label(egui::RichText::strong("Medical Tests".into()));
                     ui.add_space(10.0);
                     ui.add(
-                        eframe::egui::TextEdit::multiline(&mut self.state.medical_tests)
+                        eframe::egui::TextEdit::multiline(&mut self.state.medical_test_info)
                             .desired_rows(4)
                             .desired_width(ui.available_width() - 20.0),
                     );
+
+                    ui.add_space(10.0);
+                    if ui
+                        .add_sized(
+                            [100.0, 24.0],
+                            eframe::egui::Button::new("Save").fill(ui.visuals().selection.bg_fill),
+                        )
+                        .clicked()
+                    {
+                        match insert_patient_data(
+                            &self.state.conn,
+                            &self.state.id,
+                            &self.state.diagnosis_overview,
+                            &self.state.detailed_notes,
+                            &self.state.medical_test_info,
+                        ) {
+                            Ok(_) => {
+                                self.state
+                                    .toasts
+                                    .success("Saved patient data")
+                                    .duration(Some(Duration::from_secs(7)));
+                            }
+
+                            Err(e) => {
+                                self.state
+                                    .toasts
+                                    .error("Failed to save patient data")
+                                    .duration(Some(Duration::from_secs(7)));
+
+                                log::error!("{}", e);
+                            }
+                        }
+                    };
                 });
         });
     }
