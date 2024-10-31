@@ -1,4 +1,5 @@
 use eframe::egui::scroll_area::ScrollAreaOutput;
+use eframe::egui::{Align, Layout};
 use egui_extras::{Column, TableBuilder};
 use egui_notify::Toasts;
 use rusqlite::Connection;
@@ -69,6 +70,7 @@ pub enum Screen {
     NewPatientCreation,
     FindPatientHistory,
     NewCase,
+    About,
 }
 
 impl Screen {
@@ -77,6 +79,7 @@ impl Screen {
             Screen::NewPatientCreation => "➕ New Patient",
             Screen::FindPatientHistory => "🔍 New Case",
             Screen::NewCase => "",
+            Screen::About => "💊 About",
         }
     }
 }
@@ -123,6 +126,7 @@ impl Carelog {
                                 Screen::NewPatientCreation => "Create a new patient record",
                                 Screen::FindPatientHistory => "Search patient",
                                 Screen::NewCase => "Case Details",
+                                Screen::About => "About",
                             });
 
                     if response.clicked() {
@@ -134,6 +138,7 @@ impl Carelog {
                 egui::ScrollArea::vertical().show(ui, |ui| {
                     nav_button(ui, Screen::NewPatientCreation);
                     nav_button(ui, Screen::FindPatientHistory);
+                    nav_button(ui, Screen::About)
                 });
 
                 // Version information at the bottom
@@ -516,6 +521,29 @@ impl Carelog {
                 });
         });
     }
+
+    pub fn render_about(&mut self, ui: &mut egui::Ui) {
+        egui::CentralPanel::default().show_inside(ui, |ui| {
+            ui.with_layout(Layout::top_down(Align::Center), |ui| {
+                // Title Section
+                ui.add_space(20.0);
+                ui.heading("Carelog");
+                ui.add_space(8.0);
+
+                // Version Info
+                ui.monospace(format!("Version {}", "0.1.0"));
+                ui.add_space(16.0);
+
+                // Country of Origin
+                ui.monospace("Made in India ❤");
+                ui.add_space(8.0);
+
+                // Technology Stack
+                ui.monospace("Built with Rust & SQLite");
+                ui.add_space(16.0);
+            });
+        });
+    }
 }
 
 impl eframe::App for Carelog {
@@ -544,6 +572,7 @@ impl eframe::App for Carelog {
                 Screen::NewPatientCreation => self.render_new_patient(ui),
                 Screen::FindPatientHistory => self.render_find_patient(ui),
                 Screen::NewCase => self.render_new_case(ui),
+                Screen::About => self.render_about(ui),
             });
         });
     }
