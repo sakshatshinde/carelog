@@ -6,8 +6,8 @@ use rusqlite::Connection;
 use std::time::Duration;
 
 use crate::{
-    create_db, extract_number_from_brackets, helper_avaliable_patients_in_db, insert_new_patient,
-    insert_patient_data, DB_URL,
+    create_db, download_licenses, extract_number_from_brackets, helper_avaliable_patients_in_db,
+    insert_new_patient, insert_patient_data, is_license_valid, DB_URL,
 };
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
@@ -23,6 +23,7 @@ pub struct Carelog {
 }
 
 pub struct AppState {
+    machine_uid: String,
     id: u32,
     conn: Connection,
     search_text: String,
@@ -38,14 +39,18 @@ pub struct AppState {
     detailed_notes: String,
     medical_test_info: String,
     toasts: Toasts,
+    is_license_valid: bool,
 }
 
 impl Default for AppState {
     fn default() -> Self {
         let conn = Connection::open(DB_URL).expect("Error with the DB");
         let _ = create_db(&conn).expect("Error with the DB");
+        let m_id = machine_uid::get().unwrap();
+        let valid = is_license_valid(m_id.clone()).expect("Error with the valid");
 
         Self {
+            machine_uid: m_id,
             id: Default::default(),
             conn: conn,
             first_name: Default::default(),
@@ -61,6 +66,7 @@ impl Default for AppState {
             diagnosis_overview: Default::default(),
             detailed_notes: Default::default(),
             medical_test_info: Default::default(),
+            is_license_valid: valid,
         }
     }
 }
@@ -102,6 +108,7 @@ impl Carelog {
         // This is also where you can customize the look and feel of egui using
         // `cc.egui_ctx.set_visuals` and `cc.egui_ctx.set_fonts`.
         cc.egui_ctx.set_zoom_factor(1.2);
+        download_licenses("licenses.csv");
 
         // Load previous app state (if any).
         // Note that you must enable the `persistence` feature for this to work.
@@ -532,7 +539,10 @@ impl Carelog {
 
                 // Version Info
                 ui.monospace(format!("Version {}", "0.1.0"));
-                ui.add_space(16.0);
+                ui.add_space(8.0);
+
+                ui.separator();
+                ui.add_space(8.0);
 
                 // Country of Origin
                 ui.monospace("Made in India ❤");
@@ -540,8 +550,28 @@ impl Carelog {
 
                 // Technology Stack
                 ui.monospace("Built with Rust & SQLite");
-                ui.add_space(16.0);
+                ui.add_space(8.0);
+
+                ui.separator();
+                ui.add_space(8.0);
+
+                ui.monospace("Machine");
+                ui.monospace(&self.state.machine_uid);
+                ui.add_space(8.0);
+
+                ui.monospace("License");
+                if self.state.is_license_valid {
+                    ui.label(
+                        egui::RichText::new("Valid").color(egui::Color32::from_rgb(0, 128, 0)),
+                    );
+                } else {
+                    ui.monospace(
+                        egui::RichText::new("Invalid").color(egui::Color32::from_rgb(255, 0, 0)),
+                    );
+                }
             });
+
+            ui.add_space(10.0); // Add space at the end for better separation
         });
     }
 }

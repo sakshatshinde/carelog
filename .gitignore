@@ -13,3 +13,4 @@ target_wasm
 .lycheecache
 carelog.db
 carelog.log
+licenses.csv
