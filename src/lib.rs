@@ -134,7 +134,7 @@ pub fn insert_patient_data(
 
     let mut stmt = conn.prepare_cached(
         "INSERT OR REPLACE INTO patient_data 
-        (diagnosis_overview,detailed_note,medical_test_info,patient_id,visit_date) 
+        (diagnosis_overview,detailed_notes,medical_test_info,patient_id,visit_date) 
         VALUES (?1, ?2, ?3,?4,?5)",
     )?;
 

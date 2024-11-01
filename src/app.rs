@@ -35,6 +35,7 @@ pub struct AppState {
     address: String,
     cb_patient_relation: bool,
     relative_name: String,
+    current_patient: String,
     diagnosis_overview: String,
     detailed_notes: String,
     medical_test_info: String,
@@ -63,6 +64,7 @@ impl Default for AppState {
             relative_name: Default::default(),
             toasts: Default::default(),
             search_text: Default::default(),
+            current_patient: Default::default(),
             diagnosis_overview: Default::default(),
             detailed_notes: Default::default(),
             medical_test_info: Default::default(),
@@ -378,7 +380,7 @@ impl Carelog {
                                                                 )
                                                                 .clicked()
                                                             {
-                                                                self.state.first_name =
+                                                                self.state.current_patient =
                                                                     suggestion.clone();
                                                                 self.state
                                                                     .toasts
@@ -442,7 +444,7 @@ impl Carelog {
                     });
 
                     ui.label(
-                        egui::RichText::strong(self.state.first_name.clone().into())
+                        egui::RichText::strong(self.state.current_patient.clone().into())
                             .color(ui.visuals().hyperlink_color),
                     );
 
