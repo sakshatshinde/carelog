@@ -2,6 +2,11 @@
 
 mod app;
 
+use std::{
+    collections::HashMap,
+    io::{BufReader, Read},
+};
+
 pub use app::Carelog;
 
 use ehttp::Request;
@@ -156,8 +161,8 @@ pub fn download_licenses_data() -> String {
     let data: String = match res {
         Ok(res) => String::from_utf8_lossy(&res.bytes).into_owned(),
         Err(_) => {
-            log::error!("Something went wrong during save_to_file within download_licenses");
-            String::from("foo")
+            log::error!("Something went wrong while fetching the license data");
+            String::from("")
         }
     };
 
@@ -165,9 +170,35 @@ pub fn download_licenses_data() -> String {
 }
 
 pub fn is_license_valid(machine_uid: &str, license_data: String) -> bool {
-    if license_data.contains(machine_uid) {
-        return true;
-    } else {
-        return false;
+    // Parse the CSV data
+    let mut reader = BufReader::new(license_data.as_bytes());
+    let mut csv_data = String::new();
+    reader.read_to_string(&mut csv_data).unwrap();
+
+    // Store the expiration dates by machine UID
+    let mut expiration_dates: HashMap<&str, chrono::NaiveDate> = HashMap::new();
+
+    // Iterate through the CSV data, skipping the header row
+    for line in csv_data.lines().skip(1) {
+        let mut parts = line.split(",");
+
+        // Extract the machine UID and expiration date
+        let machine_uid_from_csv = parts.next().unwrap().trim_matches('"');
+        let expiration_date = parts.next().unwrap().trim_matches('"');
+        let _client = parts.next().unwrap().trim_matches('"');
+
+        // Store the expiration date for the current machine UID
+        let expiration_date =
+            chrono::NaiveDate::parse_from_str(expiration_date, "%m/%d/%Y").unwrap();
+
+        expiration_dates.insert(machine_uid_from_csv, expiration_date);
     }
+
+    // Check if the given machine UID has a valid expiration date
+    if let Some(expiration_date) = expiration_dates.get(machine_uid) {
+        let now = chrono::Utc::now().date_naive();
+        return *expiration_date >= now; // returns true if expiration_date > today
+    }
+
+    return false;
 }
