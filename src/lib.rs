@@ -166,7 +166,7 @@ pub fn download_licenses_data() -> String {
     return data;
 }
 
-pub fn is_license_valid(machine_uid: &str, license_data: String) -> bool {
+pub fn is_license_valid(machine_uid: &str, license_data: &str) -> (bool, String) {
     let reader = BufReader::new(license_data.as_bytes());
 
     // Iterate through the CSV data, line by line
@@ -183,7 +183,7 @@ pub fn is_license_valid(machine_uid: &str, license_data: String) -> bool {
             // Extract the machine UID and expiration date
             let machine_uid_from_csv = parts.next().unwrap().trim_matches('"');
             let expiration_date = parts.next().unwrap().trim_matches('"');
-            let _client = parts.next().unwrap().trim_matches('"');
+            let client = parts.next().unwrap().trim_matches('"');
 
             // If the machine UID matches, compare the expiration date
             if machine_uid_from_csv == machine_uid {
@@ -192,11 +192,13 @@ pub fn is_license_valid(machine_uid: &str, license_data: String) -> bool {
 
                 let now = chrono::Utc::now().date_naive();
 
-                return expiration_date >= now;
+                let result = expiration_date >= now;
+
+                return (result, client.to_string());
             }
         }
     }
 
     // If the machine UID was not found, return false
-    return false;
+    return (false, "UNLICENSED".to_string());
 }

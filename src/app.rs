@@ -42,6 +42,7 @@ pub struct AppState {
     medical_test_info: String,
     toasts: Toasts,
     is_license_valid: bool,
+    customer: String,
 }
 
 impl Default for AppState {
@@ -52,7 +53,7 @@ impl Default for AppState {
         let m_id = machine_uid::get().unwrap();
 
         let license_data = download_licenses_data();
-        let valid = is_license_valid(m_id.as_str(), license_data);
+        let (valid, licensee) = is_license_valid(m_id.as_str(), license_data.as_str());
 
         Self {
             machine_uid: m_id,
@@ -73,6 +74,7 @@ impl Default for AppState {
             detailed_notes: Default::default(),
             medical_test_info: Default::default(),
             is_license_valid: valid,
+            customer: licensee,
         }
     }
 }
@@ -564,16 +566,21 @@ impl Carelog {
                 ui.monospace(&self.state.machine_uid);
                 ui.add_space(8.0);
 
+                ui.separator();
+                ui.add_space(8.0);
                 ui.monospace("License");
                 if self.state.is_license_valid {
                     ui.label(
                         egui::RichText::new("Valid").color(egui::Color32::from_rgb(0, 128, 0)),
                     );
+                    ui.label(egui::RichText::new(&self.state.customer).italics());
                 } else {
                     ui.monospace(
                         egui::RichText::new("Invalid").color(egui::Color32::from_rgb(255, 0, 0)),
                     );
                 }
+                ui.add_space(8.0);
+                ui.separator();
             });
 
             ui.add_space(10.0); // Add space at the end for better separation
