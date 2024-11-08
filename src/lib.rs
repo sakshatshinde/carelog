@@ -2,15 +2,8 @@
 
 mod app;
 
-use std::{
-    fs::File,
-    io::{self, BufReader, Write},
-    path::Path,
-};
-
 pub use app::Carelog;
 
-use csv::ReaderBuilder;
 use ehttp::Request;
 use log::LevelFilter;
 use log4rs::{
@@ -156,77 +149,25 @@ pub struct LicenseEntry {
     pub licensee: String,
 }
 
-pub fn download_licenses(file_path: &'static str) {
+pub fn download_licenses_data() -> String {
     let req = Request::get(SHEET_URL);
+    let res = ehttp::fetch_blocking(&req);
 
-    // Send the request with a callback
-    ehttp::fetch(req, move |response| {
-        match response {
-            Ok(resp) if resp.ok => {
-                // Convert response bytes to a string
-                let data = String::from_utf8_lossy(&resp.bytes);
-
-                let _save_op = save_to_file(file_path, &data);
-                if _save_op.is_err() {
-                    log::error!("Something went wrong during save_to_file within download_licenses")
-                }
-            }
-            Ok(resp) => {
-                log::error!("Error fetching data: {}", resp.status);
-            }
-            Err(err) => {
-                log::error!("Request failed: {}", err);
-            }
+    let data: String = match res {
+        Ok(res) => String::from_utf8_lossy(&res.bytes).into_owned(),
+        Err(_) => {
+            log::error!("Something went wrong during save_to_file within download_licenses");
+            String::from("foo")
         }
-    });
+    };
+
+    return data;
 }
 
-fn save_to_file(file_path: &str, data: &str) -> io::Result<()> {
-    let path = Path::new(file_path);
-    let mut file = File::create(&path)?; // Create or overwrite the file
-    file.write_all(data.as_bytes())?; // Write the CSV data to the file
-    Ok(())
-}
-
-pub fn is_license_valid(machine_uid: String) -> Result<bool, io::Error> {
-    // Open the CSV file
-    let file = File::open("licenses.csv")?;
-    let reader = BufReader::new(file);
-    let mut csv_reader = ReaderBuilder::new().has_headers(true).from_reader(reader);
-
-    // Get the current date
-    let current_date = chrono::Local::now().date_naive(); // Get current date in UTC
-
-    // Iterate through the records in the CSV
-    for result in csv_reader.records() {
-        match result {
-            Ok(record) => {
-                if let Some(license_uid) = record.get(0) {
-                    if license_uid == machine_uid {
-                        // Check if the valid date is in the second column
-                        if let Some(valid_date_str) = record.get(1) {
-                            // Parse the valid date
-                            if let Ok(valid_date) =
-                                chrono::NaiveDate::parse_from_str(valid_date_str, "%m/%d/%Y")
-                            {
-                                // Check if the valid date is greater than or equal to the current date
-                                if valid_date >= current_date {
-                                    return Ok(true); // Machine UID is valid
-                                } else {
-                                    return Ok(false); // Machine UID found but expired
-                                }
-                            } else {
-                                log::error!("Error parsing valid date: {}", valid_date_str);
-                            }
-                        }
-                    }
-                }
-            }
-            Err(err) => {
-                log::error!("Error reading record: {}", err);
-            }
-        }
+pub fn is_license_valid(machine_uid: &str, license_data: String) -> bool {
+    if license_data.contains(machine_uid) {
+        return true;
+    } else {
+        return false;
     }
-
-    Ok(false) // Machine UID not found
 }

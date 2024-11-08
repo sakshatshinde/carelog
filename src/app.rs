@@ -6,8 +6,9 @@ use rusqlite::Connection;
 use std::time::Duration;
 
 use crate::{
-    create_db, download_licenses, extract_number_from_brackets, helper_avaliable_patients_in_db,
-    insert_new_patient, insert_patient_data, is_license_valid, DB_URL,
+    create_db, download_licenses_data, extract_number_from_brackets,
+    helper_avaliable_patients_in_db, insert_new_patient, insert_patient_data, is_license_valid,
+    DB_URL,
 };
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
@@ -45,10 +46,13 @@ pub struct AppState {
 
 impl Default for AppState {
     fn default() -> Self {
-        let conn = Connection::open(DB_URL).expect("Error with the DB");
-        let _ = create_db(&conn).expect("Error with the DB");
+        let conn = Connection::open(DB_URL).expect("Failed to connect DB");
+        let _ = create_db(&conn).expect("Failed to create or initialize the DB");
+
         let m_id = machine_uid::get().unwrap();
-        let valid = is_license_valid(m_id.clone()).expect("Error with the valid");
+
+        let license_data = download_licenses_data();
+        let valid = is_license_valid(m_id.as_str(), license_data);
 
         Self {
             machine_uid: m_id,
@@ -110,7 +114,6 @@ impl Carelog {
         // This is also where you can customize the look and feel of egui using
         // `cc.egui_ctx.set_visuals` and `cc.egui_ctx.set_fonts`.
         cc.egui_ctx.set_zoom_factor(1.2);
-        download_licenses("licenses.csv");
 
         // Load previous app state (if any).
         // Note that you must enable the `persistence` feature for this to work.
