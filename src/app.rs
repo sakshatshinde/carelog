@@ -15,8 +15,6 @@ use crate::{
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct Carelog {
-    #[serde(skip)] // This how you opt-out of serialization of a field
-    value: f32,
     #[serde(skip)]
     state: AppState,
     #[serde(skip)]
@@ -101,7 +99,6 @@ impl Screen {
 impl Default for Carelog {
     fn default() -> Self {
         Self {
-            value: 2.7,
             state: AppState {
                 ..Default::default()
             },
@@ -338,7 +335,7 @@ impl Carelog {
         if !self.state.search_text.is_empty() {
             if !suggestions.is_empty() {
                 eframe::egui::ScrollArea::vertical()
-                    .max_height(400.0)
+                    // .max_height(400.0)
                     .show(ui, |ui| {
                         ui.add_space(10.0);
                         eframe::egui::Grid::new("search_results_grid")
@@ -351,7 +348,7 @@ impl Carelog {
                                         .outer_margin(eframe::egui::vec2(0.0, 4.0))
                                         .inner_margin(eframe::egui::vec2(8.0, 8.0))
                                         .fill(ui.style().visuals.extreme_bg_color)
-                                        .rounding(5.0)
+                                        .rounding(4.0)
                                         .stroke(
                                             ui.style().visuals.widgets.noninteractive.bg_stroke,
                                         );
