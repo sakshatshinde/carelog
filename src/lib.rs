@@ -2,10 +2,7 @@
 
 mod app;
 
-use std::{
-    collections::HashMap,
-    io::{BufReader, Read},
-};
+use std::io::{BufRead, BufReader};
 
 pub use app::Carelog;
 
@@ -170,35 +167,36 @@ pub fn download_licenses_data() -> String {
 }
 
 pub fn is_license_valid(machine_uid: &str, license_data: String) -> bool {
-    // Parse the CSV data
-    let mut reader = BufReader::new(license_data.as_bytes());
-    let mut csv_data = String::new();
-    reader.read_to_string(&mut csv_data).unwrap();
+    let reader = BufReader::new(license_data.as_bytes());
 
-    // Store the expiration dates by machine UID
-    let mut expiration_dates: HashMap<&str, chrono::NaiveDate> = HashMap::new();
+    // Iterate through the CSV data, line by line
+    for line in reader.lines() {
+        if let Ok(line) = line {
+            // Skip the header row
+            if line.starts_with("machine_uid") {
+                continue;
+            }
 
-    // Iterate through the CSV data, skipping the header row
-    for line in csv_data.lines().skip(1) {
-        let mut parts = line.split(",");
+            // Split the line into parts
+            let mut parts = line.split(",");
 
-        // Extract the machine UID and expiration date
-        let machine_uid_from_csv = parts.next().unwrap().trim_matches('"');
-        let expiration_date = parts.next().unwrap().trim_matches('"');
-        let _client = parts.next().unwrap().trim_matches('"');
+            // Extract the machine UID and expiration date
+            let machine_uid_from_csv = parts.next().unwrap().trim_matches('"');
+            let expiration_date = parts.next().unwrap().trim_matches('"');
+            let _client = parts.next().unwrap().trim_matches('"');
 
-        // Store the expiration date for the current machine UID
-        let expiration_date =
-            chrono::NaiveDate::parse_from_str(expiration_date, "%m/%d/%Y").unwrap();
+            // If the machine UID matches, compare the expiration date
+            if machine_uid_from_csv == machine_uid {
+                let expiration_date =
+                    chrono::NaiveDate::parse_from_str(expiration_date, "%m/%d/%Y").unwrap();
 
-        expiration_dates.insert(machine_uid_from_csv, expiration_date);
+                let now = chrono::Utc::now().date_naive();
+
+                return expiration_date >= now;
+            }
+        }
     }
 
-    // Check if the given machine UID has a valid expiration date
-    if let Some(expiration_date) = expiration_dates.get(machine_uid) {
-        let now = chrono::Utc::now().date_naive();
-        return *expiration_date >= now; // returns true if expiration_date > today
-    }
-
+    // If the machine UID was not found, return false
     return false;
 }
