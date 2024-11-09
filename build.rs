@@ -7,6 +7,7 @@ fn main() {
         res.set("ProductVersion", "0.1.0");
         res.set("CompanyName", "Sakshat Shinde");
         res.set("ProductName", "Carelog");
+        res.set("LegalCopyright", "© Sakshat Shinde 2024");
         res.set("FileDescription", "Carelog helps save lives");
         res.set("OriginalFilename", "carelog.exe");
         res.set_icon("./assets/favicon.ico"); //default EGUI ico for now
