@@ -41,7 +41,8 @@ env_logger = "0.11"
 # web:
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen-futures = "0.4.45"
-web-sys = "0.3.72"              # to access the DOM (to hide the loading text)
+web-sys = "0.3.72"                                    # to access the DOM (to hide the loading text)
+getrandom = { version = "0.2.15", features = ["js"] }
 
 [profile.release]
 opt-level = 2 # fast and small wasm
