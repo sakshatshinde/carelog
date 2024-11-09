@@ -90,7 +90,7 @@ impl Screen {
         match self {
             Screen::NewPatientCreation => "➕ New Patient",
             Screen::FindPatientHistory => "🔍 New Case",
-            Screen::NewCase => "",
+            Screen::NewCase => "🔍 NewCase",
             Screen::About => "💊 About",
         }
     }
@@ -121,6 +121,76 @@ impl Carelog {
         }
 
         Default::default()
+    }
+
+    fn render_license_warning(&self, ctx: &egui::Context, ui: &mut egui::Ui) {
+        let rect = ui.max_rect();
+
+        // Draw the semi-transparent overlay
+        ui.painter()
+            .rect_filled(rect, 0.0, egui::Color32::from_black_alpha(190));
+
+        // Calculate the center position, accounting for the warning box size
+        let warning_width = 400.0;
+        let warning_height = 200.0;
+        let pos = egui::pos2(
+            rect.center().x - (warning_width / 2.0),
+            rect.center().y - (warning_height / 2.0),
+        );
+
+        // Create a frame for the warning message
+        egui::Window::new("License Warning")
+            .fixed_pos(pos)
+            .fixed_size([warning_width, warning_height])
+            .title_bar(false)
+            .resizable(false)
+            .collapsible(false)
+            .frame(egui::Frame::none())
+            .show(ctx, |ui| {
+                ui.vertical_centered(|ui| {
+                    ui.add_space(20.0);
+
+                    // Warning header
+                    ui.colored_label(
+                        egui::Color32::RED,
+                        egui::RichText::new("⚠ Subscription Ended")
+                            .heading()
+                            .strong()
+                            .size(30.0),
+                    );
+
+                    // Warning messages
+                    ui.label(
+                        egui::RichText::new("Seems like you are no longer subscribed to Carelog")
+                            .color(egui::Color32::ORANGE)
+                            .size(16.0),
+                    );
+
+                    ui.add_space(20.0);
+
+                    // Center the purchase button
+                    ui.with_layout(
+                        egui::Layout::top_down_justified(egui::Align::Center),
+                        |ui| {
+                            let label = egui::RichText::new("Purchase Subscription")
+                                .strong()
+                                .size(16.0);
+
+                            if ui
+                                .add(egui::Button::new(label).min_size(egui::vec2(200.0, 40.0)))
+                                .clicked()
+                            {
+                                ui.ctx().output_mut(|o| {
+                                    o.open_url = Some(egui::output::OpenUrl {
+                                        url: "https://sakshat.pages.dev/contact/".to_string(),
+                                        new_tab: true, // Opens in a new tab
+                                    });
+                                });
+                            }
+                        },
+                    );
+                });
+            });
     }
 
     fn render_sidebar(&mut self, ctx: &egui::Context) {
@@ -532,7 +602,7 @@ impl Carelog {
         });
     }
 
-    pub fn render_about(&mut self, ui: &mut egui::Ui) {
+    fn render_about(&mut self, ui: &mut egui::Ui) {
         egui::CentralPanel::default().show_inside(ui, |ui| {
             ui.with_layout(Layout::top_down(Align::Center), |ui| {
                 // Title Section
@@ -594,7 +664,10 @@ impl eframe::App for Carelog {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         // Toast Init
         self.state.toasts.show(ctx);
-        self.render_sidebar(ctx);
+        // Only show sidebar if license is valid
+        if self.state.is_license_valid {
+            self.render_sidebar(ctx);
+        }
 
         egui::TopBottomPanel::bottom("bottom_panel").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
@@ -607,12 +680,18 @@ impl eframe::App for Carelog {
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            egui::Frame::none().show(ui, |ui| match self.current_screen {
-                Screen::NewPatientCreation => self.render_new_patient(ui),
-                Screen::FindPatientHistory => self.render_find_patient(ui),
-                Screen::NewCase => self.render_new_case(ui),
-                Screen::About => self.render_about(ui),
-            });
+            if !self.state.is_license_valid {
+                self.render_license_warning(ctx, ui);
+            } else {
+                // Regular app content
+
+                egui::Frame::none().show(ui, |ui| match self.current_screen {
+                    Screen::NewPatientCreation => self.render_new_patient(ui),
+                    Screen::FindPatientHistory => self.render_find_patient(ui),
+                    Screen::NewCase => self.render_new_case(ui),
+                    Screen::About => self.render_about(ui),
+                });
+            }
         });
     }
 }
