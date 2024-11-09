@@ -148,8 +148,6 @@ impl Carelog {
             .frame(egui::Frame::none())
             .show(ctx, |ui| {
                 ui.vertical_centered(|ui| {
-                    ui.add_space(20.0);
-
                     // Warning header
                     ui.colored_label(
                         egui::Color32::RED,
@@ -162,7 +160,7 @@ impl Carelog {
                     // Warning messages
                     ui.label(
                         egui::RichText::new("Seems like you are no longer subscribed to Carelog")
-                            .color(egui::Color32::ORANGE)
+                            .color(egui::Color32::WHITE)
                             .size(16.0),
                     );
 
@@ -189,6 +187,18 @@ impl Carelog {
                             }
                         },
                     );
+
+                    ui.add_space(20.0);
+
+                    ui.separator();
+                    ui.label(
+                        egui::RichText::new("Your Machine")
+                            .monospace()
+                            .color(egui::Color32::WHITE),
+                    );
+
+                    ui.colored_label(ui.visuals().warn_fg_color, &self.state.machine_uid);
+                    ui.separator();
                 });
             });
     }
