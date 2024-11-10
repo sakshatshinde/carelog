@@ -123,7 +123,7 @@ impl Carelog {
         Default::default()
     }
 
-    fn render_license_warning(&self, ctx: &egui::Context, ui: &mut egui::Ui) {
+    fn render_license_warning(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
         let rect = ui.max_rect();
 
         // Draw the semi-transparent overlay
@@ -198,6 +198,18 @@ impl Carelog {
                     );
 
                     ui.colored_label(ui.visuals().warn_fg_color, &self.state.machine_uid);
+                    ui.add_space(5.0);
+                    if ui.small_button("📋 Copy").clicked() {
+                        ui.ctx().output_mut(|o| {
+                            o.copied_text = self.state.machine_uid.clone();
+
+                            self.state
+                                .toasts
+                                .info("Copied")
+                                .duration(Some(Duration::from_secs(7)));
+                        });
+                    }
+                    ui.add_space(5.0);
                     ui.separator();
                 });
             });
