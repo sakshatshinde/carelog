@@ -14,3 +14,5 @@ target_wasm
 carelog.db
 carelog.log
 licenses.csv
+patient_info.csv
+patient_data.csv

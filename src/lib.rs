@@ -69,6 +69,15 @@ pub fn create_db(conn: &Connection) -> Result<()> {
         params![],
     )?;
 
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_patient_name ON patient_info(first_name, last_name)",
+        params![],
+    )?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_patient_data ON patient_data(patient_id, visit_date)",
+        params![],
+    )?;
+
     Ok(())
 }
 
