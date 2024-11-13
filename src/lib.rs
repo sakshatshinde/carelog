@@ -59,11 +59,12 @@ pub fn create_db(conn: &Connection) -> Result<()> {
 
     conn.execute(
         "create table if not exists patient_data (
-            patient_id integer references patient_info(id),
+            patient_id integer not null references patient_info(id),
             visit_date text,
             diagnosis_overview text,
             detailed_notes text,
-            medical_test_info text
+            medical_test_info text,
+            PRIMARY KEY (patient_id, visit_date)
         )",
         params![],
     )?;
@@ -124,11 +125,12 @@ pub fn insert_patient_data(
     diagnosis_overview: &str,
     detailed_notes: &str,
     medical_tests: &str,
+    visit_date: &String,
 ) -> Result<(), rusqlite::Error> {
-    let visit_date = chrono::Local::now().date_naive().to_string();
+    // let visit_date = chrono::Local::now().date_naive().to_string();
 
     let mut stmt = conn.prepare_cached(
-        "INSERT OR REPLACE INTO patient_data 
+        "INSERT INTO patient_data 
         (diagnosis_overview,detailed_notes,medical_test_info,patient_id,visit_date) 
         VALUES (?1, ?2, ?3,?4,?5)",
     )?;

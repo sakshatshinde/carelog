@@ -80,8 +80,9 @@ impl Default for AppState {
 #[derive(PartialEq)]
 pub enum Screen {
     NewPatientCreation,
-    FindPatientHistory,
+    FindPatient,
     NewCase,
+    PatientHistory,
     About,
 }
 
@@ -89,9 +90,11 @@ impl Screen {
     fn title(&self) -> &'static str {
         match self {
             Screen::NewPatientCreation => "➕ New Patient",
-            Screen::FindPatientHistory => "🔍 New Case",
+            Screen::FindPatient => "🔍 New Case",
             Screen::NewCase => "🔍 NewCase",
+            // Screen::PatientHistory => "",
             Screen::About => "💊 About",
+            Screen::PatientHistory => "📜 Patient History",
         }
     }
 }
@@ -218,6 +221,7 @@ impl Carelog {
     fn render_sidebar(&mut self, ctx: &egui::Context) {
         egui::SidePanel::left("sidebar")
             .resizable(false)
+            .min_width(10.0)
             .show(ctx, |ui| {
                 ui.add_space(10.0);
                 // Navigation buttons
@@ -227,9 +231,10 @@ impl Carelog {
                         ui.selectable_label(selected, screen.title())
                             .on_hover_text(match screen {
                                 Screen::NewPatientCreation => "Create a new patient record",
-                                Screen::FindPatientHistory => "Search patient",
-                                Screen::NewCase => "Case Details",
+                                Screen::FindPatient => "Search patient",
+                                Screen::NewCase => "Case Details", // not visible on sidebar
                                 Screen::About => "About",
+                                Screen::PatientHistory => "Detailed patient history",
                             });
 
                     if response.clicked() {
@@ -240,8 +245,9 @@ impl Carelog {
                 // Scroll area for navigation items
                 egui::ScrollArea::vertical().show(ui, |ui| {
                     nav_button(ui, Screen::NewPatientCreation);
-                    nav_button(ui, Screen::FindPatientHistory);
-                    nav_button(ui, Screen::About)
+                    nav_button(ui, Screen::FindPatient);
+                    nav_button(ui, Screen::PatientHistory);
+                    nav_button(ui, Screen::About);
                 });
 
                 // Version information at the bottom
@@ -602,6 +608,7 @@ impl Carelog {
                             &self.state.diagnosis_overview,
                             &self.state.detailed_notes,
                             &self.state.medical_test_info,
+                            &self.state.visit_date.to_string(),
                         ) {
                             Ok(_) => {
                                 self.state
@@ -675,6 +682,191 @@ impl Carelog {
             ui.add_space(10.0); // Add space at the end for better separation
         });
     }
+
+    fn render_patient_history(&mut self, ui: &mut egui::Ui) {
+        // Header section
+        ui.vertical(|ui| {
+            ui.heading("Patient History");
+            ui.add_space(20.0);
+
+            // Search section with unique ID
+            eframe::egui::Grid::new("history_search_grid_ph")
+                .num_columns(2)
+                .spacing([10.0, 10.0])
+                .show(ui, |ui| {
+                    ui.label(eframe::egui::RichText::strong("Search Patient:".into()));
+                    ui.add(
+                        eframe::egui::TextEdit::singleline(&mut self.state.search_text)
+                            .desired_width(250.0)
+                            .hint_text("Enter patient's name...")
+                            .id(ui.make_persistent_id("patient_history_search")),
+                    );
+                    ui.end_row();
+                });
+
+            ui.add_space(10.0);
+
+            // Get patient list
+            if let Ok(patients) = helper_avaliable_patients_in_db(&self.state.conn) {
+                let suggestions: Vec<String> = patients
+                    .iter()
+                    .filter(|patient| {
+                        patient
+                            .to_lowercase()
+                            .contains(&self.state.search_text.to_lowercase())
+                    })
+                    .cloned()
+                    .collect();
+
+                if !self.state.search_text.is_empty() {
+                    if !suggestions.is_empty() {
+                        eframe::egui::ScrollArea::vertical()
+                            .id_salt("patient_history_scroll")
+                            .show(ui, |ui| {
+                                for (idx, suggestion) in suggestions.iter().enumerate() {
+                                    let card_frame = eframe::egui::Frame::none()
+                                        .outer_margin(eframe::egui::vec2(0.0, 4.0))
+                                        .inner_margin(eframe::egui::vec2(8.0, 8.0))
+                                        .fill(ui.style().visuals.extreme_bg_color)
+                                        .rounding(4.0)
+                                        .stroke(ui.style().visuals.widgets.noninteractive.bg_stroke);
+
+                                    card_frame.show(ui, |ui| {
+                                        ui.set_min_width(ui.available_width());
+                                        if let Some(patient_id) = extract_number_from_brackets(&suggestion) {
+                                            // Query patient details
+                                            if let Ok(mut stmt) = self.state.conn.prepare(
+                                                "SELECT first_name, last_name, mobile_number, date_of_birth, address FROM patient_info WHERE id = ?",
+                                            ) {
+                                                if let Ok(mut rows) = stmt.query([patient_id]) {
+                                                    if let Ok(Some(row)) = rows.next() {
+                                                        // Basic info section with unique ID
+                                                        ui.collapsing(
+                                                            egui::RichText::new(format!("👤 Patient Information - {}", suggestion))
+                                                                .strong(),
+                                                            |ui| {
+                                                                egui::Grid::new(format!("patient_details_grid_{}", idx))
+                                                                    .num_columns(2)
+                                                                    .spacing([10.0, 5.0])
+                                                                    .show(ui, |ui| {
+                                                                        // Display basic patient information
+                                                                        ui.label("Full Name");
+                                                                        ui.label(format!(
+                                                                            "{} {}",
+                                                                            row.get::<_, String>(0).unwrap_or_default(),
+                                                                            row.get::<_, String>(1).unwrap_or_default()
+                                                                        ));
+                                                                        ui.end_row();
+
+                                                                        ui.label("Mobile");
+                                                                        ui.label(row.get::<_, String>(2).unwrap_or_default());
+                                                                        ui.end_row();
+
+                                                                        ui.label("Date of Birth");
+                                                                        ui.label(row.get::<_, String>(3).unwrap_or_default());
+                                                                        ui.end_row();
+
+                                                                        ui.label("Address");
+                                                                        ui.label(row.get::<_, String>(4).unwrap_or_default());
+                                                                        ui.end_row();
+                                                                    });
+                                                            },
+                                                        );
+
+                                                        // Visit history section with unique ID
+                                                        ui.collapsing(
+                                                            egui::RichText::new(format!("📋 Visit History - {}", suggestion))
+                                                                .strong(),
+                                                            |ui| {
+                                                                if let Ok(mut visit_stmt) = self.state.conn.prepare(
+                                                                    "
+                                                                    SELECT visit_date, diagnosis_overview, detailed_notes, medical_test_info FROM patient_data
+                                                                    WHERE patient_id = ?
+                                                                    ORDER BY visit_date DESC
+                                                                    ",
+                                                                ) {
+                                                                    if let Ok(mut visit_rows) = visit_stmt.query([patient_id]) {
+                                                                        let mut found_visits = false;
+
+                                                                        while let Ok(Some(visit)) = visit_rows.next() {
+                                                                            found_visits = true;
+                                                                            ui.add_space(5.0);
+
+                                                                            let visit_frame = egui::Frame::none()
+                                                                                .outer_margin(eframe::egui::vec2(0.0, 4.0))
+                                                                                .inner_margin(eframe::egui::vec2(8.0, 8.0))
+                                                                                .fill(ui.style().visuals.faint_bg_color)
+                                                                                .rounding(4.0);
+
+                                                                            visit_frame.show(ui, |ui| {
+                                                                                ui.collapsing(
+                                                                                    format!(
+                                                                                        "Visit Date: {}",
+                                                                                        visit.get::<_, String>(0).unwrap_or_default()
+                                                                                    ),
+                                                                                    |ui| {
+                                                                                        ui.add_space(5.0);
+
+                                                                                        ui.label(egui::RichText::new("Diagnosis Overview")
+                                                                                            .strong());
+                                                                                        ui.label(
+                                                                                            visit.get::<_, String>(1).unwrap_or_default(),
+                                                                                        );
+                                                                                        ui.add_space(5.0);
+
+                                                                                        ui.label(egui::RichText::new("Detailed Notes")
+                                                                                            .strong());
+                                                                                        ui.label(
+                                                                                            visit.get::<_, String>(2).unwrap_or_default(),
+                                                                                        );
+                                                                                        ui.add_space(5.0);
+
+                                                                                        ui.label(egui::RichText::new("Medical Tests")
+                                                                                            .strong());
+                                                                                        ui.label(
+                                                                                            visit.get::<_, String>(3).unwrap_or_default(),
+                                                                                        );
+                                                                                    },
+                                                                                );
+                                                                            });
+
+                                                                        }
+                                                                        if !found_visits {
+                                                                            ui.label("No visit history found");
+                                                                        }
+                                                                    }
+                                                                }
+                                                            },
+                                                        );
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    });
+                                }
+                            });
+                    } else {
+                        ui.label(
+                            egui::RichText::new("ℹ Patient not found")
+                                .color(ui.visuals().error_fg_color)
+                                .strong(),
+                        );
+                    }
+                } else {
+                    ui.label(
+                        egui::RichText::new("ℹ Please enter a name to search")
+                            .color(ui.visuals().warn_fg_color)
+                            .strong(),
+                    );
+                }
+            } else {
+                ui.label(
+                    egui::RichText::new("❌ Failed to load patients")
+                        .color(egui::Color32::RED),
+                );
+            }
+        });
+    }
 }
 
 impl eframe::App for Carelog {
@@ -709,9 +901,10 @@ impl eframe::App for Carelog {
 
                 egui::Frame::none().show(ui, |ui| match self.current_screen {
                     Screen::NewPatientCreation => self.render_new_patient(ui),
-                    Screen::FindPatientHistory => self.render_find_patient(ui),
+                    Screen::FindPatient => self.render_find_patient(ui),
                     Screen::NewCase => self.render_new_case(ui),
                     Screen::About => self.render_about(ui),
+                    Screen::PatientHistory => self.render_patient_history(ui),
                 });
             }
         });
