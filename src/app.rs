@@ -220,8 +220,7 @@ impl Carelog {
 
     fn render_sidebar(&mut self, ctx: &egui::Context) {
         egui::SidePanel::left("sidebar")
-            .resizable(false)
-            .min_width(10.0)
+            .resizable(true)
             .show(ctx, |ui| {
                 ui.add_space(10.0);
                 // Navigation buttons
@@ -772,7 +771,9 @@ impl Carelog {
                                                                     });
                                                             },
                                                         );
-
+                                                        
+                                                        ui.add_space(10.0);
+                                                        
                                                         // Visit history section with unique ID
                                                         ui.collapsing(
                                                             egui::RichText::new(format!("📋 Visit History - {}", suggestion))
@@ -854,7 +855,7 @@ impl Carelog {
                     }
                 } else {
                     ui.label(
-                        egui::RichText::new("ℹ Please enter a name to search")
+                        egui::RichText::new("ℹ Enter a patient's name to search")
                             .color(ui.visuals().warn_fg_color)
                             .strong(),
                     );
